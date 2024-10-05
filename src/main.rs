@@ -21,7 +21,7 @@ fn main() -> eframe::Result {
         "particle life",
         native_options,
         // Box::new(|cc| Ok(Box::new(App::new(cc, 6, 100)))),
-        Box::new(|cc| Ok(Box::new(App::new(cc, 6, 1000)))),
+        Box::new(|cc| Ok(Box::new(App::new(cc, 6, 5000)))),
     )
 }
 
