@@ -5,7 +5,7 @@ run with ```cargo run --release```
 
 particle life is like boids or a cellular automaton. it consists of a set of particles each with a position, velocity, and species. each specie has an attraction coefficient to each other specie. each simulation tick, each particle, for each other particle in a radius, gets a force applied determined by an activation function. the activation function is negative for small distances, proportional to the species' attraction coefficient for medium distances, and zero for distances greater than the local radius. then friction is applied.
 
-some parameters are particle count, simulation substep count, and local radius, which are important for performance (local radius isn't right now but may be in the future), and species count and friction half life, which are non-performance-impacting aspects of the simulation. in the shader, i'm trying to do something with force scaling to make it stable across many particle counts.
+some parameters and their approximate values are particle count ~ 5000, simulation substep count ~ 8, and local radius ~ 0.1, which are important for performance (local radius isn't right now but may be in the future), and species count ~ 6 and friction half life ~ 0.04, which are non-performance-impacting aspects of the simulation. in the shader, i'm trying to do something with force scaling to make it stable across many particle counts. position is in [0.0, 1.0], velocity is approximately in [-1.0, ~1.0], and species is approximately in {0, 1, ..., ~6}.
 
 the current algorithm is the naive O(particle_n**2).
 
