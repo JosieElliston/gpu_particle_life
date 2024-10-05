@@ -88,9 +88,11 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
                 attractions[species[index]*params.specie_n + species[neighbor_i]],
             );
     }
-    // force = vec2(0.0, 0.0);
+
+    // scale the force to make it nicer
     // force = normalize(force) * clamp(length(force), 0.0, 10.0);
-    force *= 32.0 / sqrt(f32(params.particle_n)); // TODO: this is kinda weird
+    // TODO: this is kinda weird
+    force *= 32.0 / sqrt(f32(params.particle_n)); // is 1.0 for particle_n = 1024
     // force *= 1000.0 / f32(params.particle_n);
 
     var new_vel = vel_src[index] + force * params.dt;
