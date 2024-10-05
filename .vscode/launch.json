@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'gpu_particle_life'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=gpu_particle_life",
+                    "--package=gpu_particle_life"
+                ],
+                "filter": {
+                    "name": "gpu_particle_life",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'gpu_particle_life'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=gpu_particle_life",
+                    "--package=gpu_particle_life"
+                ],
+                "filter": {
+                    "name": "gpu_particle_life",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
