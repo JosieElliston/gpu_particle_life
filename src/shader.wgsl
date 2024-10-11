@@ -17,21 +17,21 @@
 // @group(0) @binding(1) var<storage, read> particlesSrc: array<Particle>;
 // @group(0) @binding(2) var<storage, read_write> particlesDst: array<Particle>;
 
+
 struct Params {
     specie_n: u32,
     particle_n: u32,
     local_radius: f32,
     local_radius2: f32,
-    friction_half_life: f32,
+    friction: f32,
     dt: f32,
-    // force_multiplier: f32,
+    force_multiplier: f32,
     particle_radius: f32,
     particle_radius2: f32,
     texture_size: u32,
     zoom_scale: f32,
     zoom_center_x: f32,
     zoom_center_y: f32,
-    // _padding: f32,
 }
 
 @group(0) @binding(0) var<uniform> params: Params;
@@ -54,7 +54,7 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     let pos: vec2<f32> = pos_src[index];
     // let pos: vec2<f32> = vec2<f32>(0.0, 0.0);
-    var force: vec2<f32> = vec2<f32>(0.0, 0.0);
+    var force: vec2<f32> = vec2(0.0, 0.0);
 
     for (var neighbor_i: u32 = 0; neighbor_i < params.particle_n; neighbor_i++) {
         if (neighbor_i == index) {
@@ -63,16 +63,21 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
         let neighbor_pos = pos_src[neighbor_i];
         var to_neighbor = neighbor_pos - pos;
-        if to_neighbor.x > 0.5 {
-            to_neighbor.x -= 1.0;
-        } else if to_neighbor.x < -0.5 {
-            to_neighbor.x += 1.0;
-        }
-        if to_neighbor.y > 0.5 {
-            to_neighbor.y -= 1.0;
-        } else if to_neighbor.y < -0.5 {
-            to_neighbor.y += 1.0;
-        }
+
+        // allow to_neighber to wrap around the walls
+        to_neighbor -= step(vec2(0.5, 0.5), to_neighbor);
+        to_neighbor += step(to_neighbor, vec2(-0.5, -0.5));
+        // if to_neighbor.x > 0.5 {
+        //     to_neighbor.x -= 1.0;
+        // } else if to_neighbor.x < -0.5 {
+        //     to_neighbor.x += 1.0;
+        // }
+        // if to_neighbor.y > 0.5 {
+        //     to_neighbor.y -= 1.0;
+        // } else if to_neighbor.y < -0.5 {
+        //     to_neighbor.y += 1.0;
+        // }
+        
 
         let distance2 = dot(to_neighbor, to_neighbor);
         if distance2 > params.local_radius2 {
@@ -84,7 +89,7 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         let distance = sqrt(distance2);
         force += (to_neighbor / distance)
             * get_attraction_force(
-                distance / params.local_radius,
+                distance * (1.0 / params.local_radius),
                 attractions[species[index]*params.specie_n + species[neighbor_i]],
             );
     }
@@ -92,41 +97,47 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // scale the force to make it nicer
     // force = normalize(force) * clamp(length(force), 0.0, 10.0);
     // TODO: this is kinda weird
-    force *= 32.0 / sqrt(f32(params.particle_n)); // is 1.0 for particle_n = 1024
+    force *= params.force_multiplier;
+     // TODO: do cache force scale in params
     // force *= 1000.0 / f32(params.particle_n);
 
     var new_vel = vel_src[index] + force * params.dt;
     // new_vel = normalize(new_vel) * clamp(length(new_vel), 0.0, 10.0);
 
-    let friction = pow(0.5, params.dt / params.friction_half_life);
-    new_vel *= friction;
+    // let friction = pow(0.5, params.dt / params.friction_half_life); // TODO: do cache friction in params
+    new_vel *= params.friction;
+
+    // new_vel = normalize(new_vel) * clamp(length(new_vel), 0.0, 0.5 / params.dt); // can't go farther than 1/2 the screen per frame
 
     var new_pos = pos + new_vel * params.dt;
 
     // wall wrapping
-    // TODO: why snap it to the edges?
-    if new_pos.x > 1.0 {
-        new_pos.x = 0.0;
-    } else if new_pos.x < 0.0 {
-        new_pos.x = 1.0;
-    }
-    if new_pos.y > 1.0 {
-        new_pos.y = 0.0;
-    } else if new_pos.y < 0.0 {
-        new_pos.y = 1.0;
-    }
+    // can i make it wrap correctly without while (not in square):  += 1.0
+    // what if i cap new_vel * params.dt to be < 1.0 or < 0.5
+    new_pos -= step(vec2(1.0, 1.0), new_pos); // (vec2(1.0, 1.0) <= new_pos)
+    new_pos += step(new_pos, vec2(0.0, 0.0)); // (new_pos <= vec2(0.0, 0.0))
+    // if new_pos.x > 1.0 {
+    //     new_pos.x = 0.0;
+    // } else if new_pos.x < 0.0 {
+    //     new_pos.x = 1.0;
+    // }
+    // if new_pos.y > 1.0 {
+    //     new_pos.y = 0.0;
+    // } else if new_pos.y < 0.0 {
+    //     new_pos.y = 1.0;
+    // }
 
     pos_dst[index] = new_pos;
     vel_dst[index] = new_vel;
 }
 
 // TODO: this but without distance normalized by local_radius so i can do a convolution
+const BETA: f32 = 0.3;
 fn get_attraction_force(distance: f32, attraction: f32) -> f32 {
-    let BETA: f32 = 0.3;
     if (distance < BETA) {
-        return distance / BETA - 1.0;
+        return distance * (1.0 / BETA) - 1.0;
     } else {
-        return attraction * (1.0 - abs(2.0 * distance - 1.0 - BETA) / (1.0 - BETA));
+        return attraction * (1.0 - abs(2.0 * distance - (1.0 + BETA)) / (1.0 - BETA));
     }
 }
 
@@ -157,7 +168,7 @@ fn main_vs(
     //     vec4<f32>(rotated_veretex + scaled_particle_pos, 0.0, 1.0),
     //     particle_pos, particle_vel, particle_species);
     return VertexOutput(
-        vec4<f32>(vertex_pos + scaled_particle_pos, 0.0, 1.0),
+        vec4(vertex_pos + scaled_particle_pos, 0.0, 1.0),
         particle_pos, particle_vel, particle_species);
 }
 

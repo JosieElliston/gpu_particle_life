@@ -89,7 +89,7 @@ impl GfxData {
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("attraction_buffer"),
                 contents: bytemuck::cast_slice(
-                    &sim_data
+                    &sim_settings
                         .attractions
                         .clone()
                         .into_iter()
@@ -101,7 +101,7 @@ impl GfxData {
         let specie_color_buffer: wgpu::Buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("specie_color_buffer"),
-                contents: bytemuck::cast_slice(&sim_data.specie_colors),
+                contents: bytemuck::cast_slice(&view_settings.specie_colors),
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             });
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -320,7 +320,7 @@ impl GfxData {
                             ty: wgpu::BufferBindingType::Storage { read_only: true },
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(size_of_val(
-                                sim_data.specie_colors.as_slice(),
+                                view_settings.specie_colors.as_slice(),
                             )
                                 as _),
                         },
@@ -423,10 +423,6 @@ impl GfxData {
         }
     }
 
-    pub(crate) fn tick_once(&mut self) {
-        todo!()
-    }
-
     pub(crate) fn render(&mut self, view_settings: &ViewSettings, sim_settings: &SimSettings) {
         let mut command_encoder =
             self.device
@@ -442,22 +438,36 @@ impl GfxData {
 
         // compute pass
         command_encoder.push_debug_group("compute_pass");
-        for _ in 0..sim_settings.substep_n {
-            let mut compute_pass =
-                command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("compute_pass"),
-                    timestamp_writes: None,
-                });
-            compute_pass.set_pipeline(&self.compute_pipeline);
-            compute_pass.set_bind_group(
+        {
+            self.queue.write_buffer(
+                &self.attraction_buffer,
                 0,
-                &self.compute_bind_groups[self.swap_parity as usize],
-                &[],
+                bytemuck::cast_slice(
+                    &sim_settings
+                        .attractions
+                        .clone()
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<f32>>(),
+                ),
             );
-            let work_group_count =
-                ((sim_settings.particle_n as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
-            compute_pass.dispatch_workgroups(work_group_count, 1, 1);
-            self.swap_parity = !self.swap_parity;
+            for _ in 0..sim_settings.substep_n {
+                let mut compute_pass =
+                    command_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("compute_pass"),
+                        timestamp_writes: None,
+                    });
+                compute_pass.set_pipeline(&self.compute_pipeline);
+                compute_pass.set_bind_group(
+                    0,
+                    &self.compute_bind_groups[self.swap_parity as usize],
+                    &[],
+                );
+                let work_group_count =
+                    ((sim_settings.particle_n as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
+                compute_pass.dispatch_workgroups(work_group_count, 1, 1);
+                self.swap_parity = !self.swap_parity;
+            }
         }
         command_encoder.pop_debug_group();
 
@@ -523,6 +533,11 @@ impl GfxData {
                 0,
                 bytemuck::bytes_of(&get_triangle(view_settings.particle_radius)),
             );
+            self.queue.write_buffer(
+                &self.specie_color_buffer,
+                0,
+                bytemuck::cast_slice(&view_settings.specie_colors),
+            );
 
             let texture_view = self
                 .texture
@@ -578,9 +593,9 @@ struct ShaderParams {
     particle_n: u32,
     local_radius: f32,
     local_radius2: f32,
-    friction_half_life: f32,
+    friction: f32,
     dt: f32,
-
+    force_multiplier: f32,
     particle_radius: f32,
     particle_radius2: f32,
     texture_size: u32,
@@ -590,14 +605,15 @@ struct ShaderParams {
 }
 impl ShaderParams {
     fn new(view_settings: &ViewSettings, sim_settings: &SimSettings) -> Self {
+        let dt = sim_settings.dt / sim_settings.substep_n as f32;
         Self {
             specie_n: sim_settings.specie_n as _,
             particle_n: sim_settings.particle_n as _,
             local_radius: sim_settings.local_radius,
             local_radius2: sim_settings.local_radius * sim_settings.local_radius,
-            friction_half_life: sim_settings.friction_half_life,
-            dt: sim_settings.dt / sim_settings.substep_n as f32,
-
+            friction: 0.5_f32.powf(dt / sim_settings.friction_half_life),
+            dt,
+            force_multiplier: 32.0 / (sim_settings.particle_n as f32).sqrt(), // is 1.0 for particle_n = 1024
             particle_radius: view_settings.particle_radius,
             particle_radius2: view_settings.particle_radius * view_settings.particle_radius,
             texture_size: view_settings.texture_size,

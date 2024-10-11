@@ -1,13 +1,13 @@
-particle life implemented on the gpu in rust.
+particle life on the gpu implemented in rust with eframe and wgpu.
 run with ```cargo run --release```
 
 [very good video](https://www.youtube.com/watch?v=p4YirERTVF0)
 
-particle life is like boids or a cellular automaton. it consists of a set of particles each with a position, velocity, and species. each specie has an attraction coefficient to each other specie. each simulation tick, each particle, for each other particle in a radius, gets a force applied determined by an activation function. the activation function is negative for small distances, proportional to the species' attraction coefficient for medium distances, and zero for distances greater than the local radius. then friction is applied. because the attraction coefficients aren't symmetric, the simulation doesn't conserve energy.
+particle life is like boids or a cellular automaton. it consists of a set of particles each with a position (which are in [0.0, 1.0]x[0.0, 1.0]), velocity, and species. each specie has an random attraction coefficient to each other specie. each simulation tick, each particle, for each other particle in a radius, gets a force applied determined by an activation function. the activation function is negative for small distances, proportional to the species' attraction coefficient for medium distances, and zero for distances greater than the local radius. then friction is applied. because the attraction coefficients aren't symmetric, the simulation doesn't conserve energy.
 
-some parameters and their approximate values are particle count ~ 5000, simulation substep count ~ 8, and local radius ~ 0.1, which are important for performance (local radius isn't right now but may be in the future), and species count ~ 6 and friction half life ~ 0.04, which are non-performance-impacting aspects of the simulation. in the shader, i'm trying to do something with force scaling to make it stable across many particle counts. position is in [0.0, 1.0], velocity is approximately in [-1.0, ~1.0], and species is approximately in {0, 1, ..., ~6}.
+some parameters and their default values are particle_n = 5000, substep_n = 8, and local_radius = 0.1, which are important for performance (local radius isn't right now but may be in the future), and specie_n = 6, friction_half_life = 0.04, and attraction coefficients randomly in [-1.0, 1.0], which are non-performance-impacting aspects of the simulation. in the shader, i'm trying to do something with force scaling to make it stable across many particle counts.
 
-the current algorithm is the naive O(particle_n**2).
+the current algorithm is the naive O(particle_n**2), but each gpu thread(?) only does O(particle_n) work.
 
 i want to try integration methods other than the euler method.
 
