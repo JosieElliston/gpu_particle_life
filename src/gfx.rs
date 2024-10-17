@@ -43,7 +43,9 @@ impl GfxData {
         let shader_params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("shader_params_buffer"),
             contents: bytemuck::bytes_of(&ShaderParams::new(view_settings, sim_settings)),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::UNIFORM
+                | wgpu::BufferUsages::COPY_DST,
         });
         let pos_buffer0 = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("pos_buffer0"),
@@ -228,6 +230,7 @@ impl GfxData {
             module: &shader_module,
             entry_point: "main_cs",
             compilation_options: Default::default(),
+            cache: None,
         });
 
         // create two bind groups, one for each buffer as the src
@@ -303,7 +306,7 @@ impl GfxData {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -398,6 +401,7 @@ impl GfxData {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         Self {
@@ -531,7 +535,7 @@ impl GfxData {
             self.queue.write_buffer(
                 &self.vertex_buffer,
                 0,
-                bytemuck::bytes_of(&get_triangle(view_settings.particle_radius)),
+                bytemuck::bytes_of(&get_triangle(view_settings.particle_radius * view_settings.zoom_scale)),
             );
             self.queue.write_buffer(
                 &self.specie_color_buffer,
@@ -600,12 +604,15 @@ struct ShaderParams {
     particle_radius2: f32,
     texture_size: u32,
     zoom_scale: f32,
+    // zoom_center: [f32; 2],
+    // zoom_center: eframe::egui::Vec2,
     zoom_center_x: f32,
     zoom_center_y: f32,
 }
 impl ShaderParams {
     fn new(view_settings: &ViewSettings, sim_settings: &SimSettings) -> Self {
-        let dt = sim_settings.dt / sim_settings.substep_n as f32;
+        let dt = sim_settings.time_scale * sim_settings.dt / sim_settings.substep_n as f32;
+        let particle_radius = view_settings.particle_radius * view_settings.zoom_scale;
         Self {
             specie_n: sim_settings.specie_n as _,
             particle_n: sim_settings.particle_n as _,
@@ -614,11 +621,13 @@ impl ShaderParams {
             friction: 0.5_f32.powf(dt / sim_settings.friction_half_life),
             dt,
             force_multiplier: 32.0 / (sim_settings.particle_n as f32).sqrt(), // is 1.0 for particle_n = 1024
-            particle_radius: view_settings.particle_radius,
-            particle_radius2: view_settings.particle_radius * view_settings.particle_radius,
+            particle_radius,
+            particle_radius2: particle_radius * particle_radius,
             texture_size: view_settings.texture_size,
             zoom_scale: view_settings.zoom_scale,
-            zoom_center_x: view_settings.zoom_center.y,
+            // zoom_center: [view_settings.zoom_center.x, view_settings.zoom_center.y],
+            // zoom_center: view_settings.zoom_center,
+            zoom_center_x: view_settings.zoom_center.x,
             zoom_center_y: view_settings.zoom_center.y,
         }
     }

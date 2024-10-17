@@ -30,6 +30,7 @@ struct Params {
     particle_radius2: f32,
     texture_size: u32,
     zoom_scale: f32,
+    // zoom_center: vec2<f32>,
     zoom_center_x: f32,
     zoom_center_y: f32,
 }
@@ -51,6 +52,9 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     if (index >= params.particle_n) {
         return;
     }
+    // let prev_prev_pos = pos_dst[index];
+    // storageBarrier();
+    // workgroupBarrier();
 
     let pos: vec2<f32> = pos_src[index];
     // let pos: vec2<f32> = vec2<f32>(0.0, 0.0);
@@ -96,36 +100,27 @@ fn main_cs(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     // scale the force to make it nicer
     // force = normalize(force) * clamp(length(force), 0.0, 10.0);
-    // TODO: this is kinda weird
     force *= params.force_multiplier;
-     // TODO: do cache force scale in params
-    // force *= 1000.0 / f32(params.particle_n);
 
+    // euler integration
     var new_vel = vel_src[index] + force * params.dt;
-    // new_vel = normalize(new_vel) * clamp(length(new_vel), 0.0, 10.0);
-
-    // let friction = pow(0.5, params.dt / params.friction_half_life); // TODO: do cache friction in params
     new_vel *= params.friction;
-
-    // new_vel = normalize(new_vel) * clamp(length(new_vel), 0.0, 0.5 / params.dt); // can't go farther than 1/2 the screen per frame
-
     var new_pos = pos + new_vel * params.dt;
 
+    // verlet integration
+    // let prev_pos = pos;
+    // let prev_prev_pos = pos_dst[index];
+    // var new_pos = 2.0 * prev_pos - prev_prev_pos + force * params.dt * params.dt; // probably works but needs friction. actually i don't think it works
+    // let vel_dt = prev_pos + (prev_pos - prev_prev_pos) * params.friction;
+    // vel = (prev_pos - prev_prev_pos) / dt;
+
+    // var new_pos = prev_pos + (prev_pos - prev_prev_pos) * params.friction + force * params.dt * params.dt;
+
     // wall wrapping
-    // can i make it wrap correctly without while (not in square):  += 1.0
-    // what if i cap new_vel * params.dt to be < 1.0 or < 0.5
-    new_pos -= step(vec2(1.0, 1.0), new_pos); // (vec2(1.0, 1.0) <= new_pos)
-    new_pos += step(new_pos, vec2(0.0, 0.0)); // (new_pos <= vec2(0.0, 0.0))
-    // if new_pos.x > 1.0 {
-    //     new_pos.x = 0.0;
-    // } else if new_pos.x < 0.0 {
-    //     new_pos.x = 1.0;
-    // }
-    // if new_pos.y > 1.0 {
-    //     new_pos.y = 0.0;
-    // } else if new_pos.y < 0.0 {
-    //     new_pos.y = 1.0;
-    // }
+    // assume can't go farther than 1/2 or maybe 1 of the screen per frame
+    new_pos -= step(vec2(1.0, 1.0), new_pos);
+    new_pos += step(new_pos, vec2(0.0, 0.0));
+
 
     pos_dst[index] = new_pos;
     vel_dst[index] = new_vel;
@@ -141,6 +136,7 @@ fn get_attraction_force(distance: f32, attraction: f32) -> f32 {
     }
 }
 
+// TODO: use other rendering method
 struct VertexOutput {
     @builtin(position) weird_pos: vec4<f32>,
     @location(1) particle_pos: vec2<f32>,
@@ -161,12 +157,18 @@ fn main_vs(
     //     vertex_pos.x * cos(angle) - vertex_pos.y * sin(angle),
     //     vertex_pos.x * sin(angle) + vertex_pos.y * cos(angle)
     // );
-    let scaled_particle_pos = particle_pos * 2.0 - vec2(1.0, 1.0);
-    // let scaled_particle_pos = vec2(particle_pos.x * 2.0 - 1.0, 1.0 - particle_pos.x * 2.0);
-    // TODO: zooming
-    // return VertexOutput(
-    //     vec4<f32>(rotated_veretex + scaled_particle_pos, 0.0, 1.0),
-    //     particle_pos, particle_vel, particle_species);
+
+    var translated_particle_pos = particle_pos - vec2(params.zoom_center_x, params.zoom_center_y);
+    translated_particle_pos -= step(vec2(1.0, 1.0), translated_particle_pos);
+    translated_particle_pos += step(translated_particle_pos, vec2(0.0, 0.0));
+    translated_particle_pos *= params.zoom_scale;
+    // translated_particle_pos += vec2(0.5, 0.5);
+
+    // let scaled_particle_pos = particle_pos * 2.0 - vec2(1.0, 1.0);
+    // let scaled_particle_pos = (particle_pos - params.zoom_center + vec2(0.5, 0.5)) * 2.0 - vec2(1.0, 1.0);
+    // let scaled_particle_pos = (particle_pos - vec2(params.zoom_center_x - 0.5, params.zoom_center_y - 0.5)) * 2.0 - vec2(1.0, 1.0);
+
+    let scaled_particle_pos = translated_particle_pos * 2.0 - vec2(1.0, 1.0);
     return VertexOutput(
         vec4(vertex_pos + scaled_particle_pos, 0.0, 1.0),
         particle_pos, particle_vel, particle_species);
@@ -181,8 +183,18 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
 
     var pixel_pos = rp_pos / f32(params.texture_size);
     pixel_pos = vec2(pixel_pos.x, 1.0 - pixel_pos.y);
+    // pixel_pos = pixel_pos - vec2(params.zoom_center_x - 0.5, params.zoom_center_y - 0.5);
+    // pixel_pos = pixel_pos - vec2(params.zoom_center_x, params.zoom_center_y);
+
     // let particle_pos = (in.particle_pos + vec2(1.0, 1.0)) / 2.0;
-    let particle_pos = in.particle_pos;
+    var particle_pos = in.particle_pos - vec2(params.zoom_center_x, params.zoom_center_y);
+    particle_pos -= step(vec2(1.0, 1.0), particle_pos);
+    particle_pos += step(particle_pos, vec2(0.0, 0.0));
+    particle_pos *= params.zoom_scale;
+    // particle_pos += vec2(0.5, 0.5);
+    if particle_pos.x < 0.0 || particle_pos.x > 1.0 || particle_pos.y < 0.0 || particle_pos.y > 1.0 {
+        discard;
+    }
     // let particle_pos = vec2(in.particle_pos.x, 1.0 - in.particle_pos.y);
     // let radius = 2.0 * params.particle_radius; // *2.0 because we're in normalized device coordinates
     let to_particle = particle_pos - pixel_pos;
@@ -198,7 +210,7 @@ fn main_fs(in: VertexOutput) -> @location(0) vec4<f32> {
     // return turbo(pixel_pos.y, 0.0, 1.0);
     // it seems like a y-down / y-up problem
 
-
+    // TODO: antialiasing
     if dot(to_particle, to_particle) > params.particle_radius2 {
         discard;
     }
