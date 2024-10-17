@@ -10,6 +10,7 @@ use eframe::{egui::*, emath};
 type NumFormatter<'a> = Box<dyn 'a + Fn(f64, RangeInclusive<usize>) -> String>;
 type NumParser<'a> = Box<dyn 'a + Fn(&str) -> Option<f64>>;
 
+#[allow(dead_code)]
 const MINUS_CHAR_STR: &str = "−";
 
 // ----------------------------------------------------------------------------
@@ -95,6 +96,7 @@ impl<'a> ColorDragValue<'a> {
     /// By default all values are clamped to this range, even when not interacted with.
     /// You can change this behavior by passing `false` to [`Self::clamp_existing_to_range`].
     #[deprecated = "Use `range` instead"]
+    #[allow(dead_code)]
     #[inline]
     pub fn clamp_range<Num: emath::Numeric>(self, range: RangeInclusive<Num>) -> Self {
         self.range(range)
@@ -156,13 +158,15 @@ impl<'a> ColorDragValue<'a> {
         self
     }
 
-    #[inline]
     #[deprecated = "Renamed clamp_existing_to_range"]
+    #[allow(dead_code)]
+    #[inline]
     pub fn clamp_to_range(self, clamp_to_range: bool) -> Self {
         self.clamp_existing_to_range(clamp_to_range)
     }
 
     /// Show a prefix before the number, e.g. "x: "
+    #[allow(dead_code)]
     #[inline]
     pub fn prefix(mut self, prefix: impl ToString) -> Self {
         self.prefix = prefix.to_string();
@@ -170,6 +174,7 @@ impl<'a> ColorDragValue<'a> {
     }
 
     /// Add a suffix to the number, this can be e.g. a unit ("°" or " m")
+    #[allow(dead_code)]
     #[inline]
     pub fn suffix(mut self, suffix: impl ToString) -> Self {
         self.suffix = suffix.to_string();
@@ -180,6 +185,7 @@ impl<'a> ColorDragValue<'a> {
     /// Set a minimum number of decimals to display.
     /// Normally you don't need to pick a precision, as the slider will intelligently pick a precision for you.
     /// Regardless of precision the slider will use "smart aim" to help the user select nice, round values.
+    #[allow(dead_code)]
     #[inline]
     pub fn min_decimals(mut self, min_decimals: usize) -> Self {
         self.min_decimals = min_decimals;
@@ -197,6 +203,7 @@ impl<'a> ColorDragValue<'a> {
         self
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn max_decimals_opt(mut self, max_decimals: Option<usize>) -> Self {
         self.max_decimals = max_decimals;
@@ -252,6 +259,7 @@ impl<'a> ColorDragValue<'a> {
     ///     }));
     /// # });
     /// ```
+    #[allow(dead_code)]
     pub fn custom_formatter(
         mut self,
         formatter: impl 'a + Fn(f64, RangeInclusive<usize>) -> String,
@@ -296,6 +304,7 @@ impl<'a> ColorDragValue<'a> {
     ///     }));
     /// # });
     /// ```
+    #[allow(dead_code)]
     #[inline]
     pub fn custom_parser(mut self, parser: impl 'a + Fn(&str) -> Option<f64>) -> Self {
         self.custom_parser = Some(Box::new(parser));
@@ -321,6 +330,7 @@ impl<'a> ColorDragValue<'a> {
     /// ui.add(egui::DragValue::new(&mut my_i32).binary(64, false));
     /// # });
     /// ```
+    #[allow(dead_code)]
     pub fn binary(self, min_width: usize, twos_complement: bool) -> Self {
         assert!(
             min_width > 0,
@@ -356,6 +366,7 @@ impl<'a> ColorDragValue<'a> {
     /// ui.add(egui::DragValue::new(&mut my_i32).octal(22, false));
     /// # });
     /// ```
+    #[allow(dead_code)]
     pub fn octal(self, min_width: usize, twos_complement: bool) -> Self {
         assert!(
             min_width > 0,
@@ -391,6 +402,7 @@ impl<'a> ColorDragValue<'a> {
     /// ui.add(egui::DragValue::new(&mut my_i32).hexadecimal(16, false, true));
     /// # });
     /// ```
+    #[allow(dead_code)]
     pub fn hexadecimal(self, min_width: usize, twos_complement: bool, upper: bool) -> Self {
         assert!(
             min_width > 0,

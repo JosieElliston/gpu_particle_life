@@ -5,7 +5,7 @@ mod gfx;
 mod my_utils;
 
 use color_drag_value::ColorDragValue;
-use eframe::egui::{self, Rect, Vec2};
+use eframe::egui::{self, Vec2};
 use gfx::GfxData;
 use rand::prelude::*;
 
