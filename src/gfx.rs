@@ -614,7 +614,7 @@ struct ShaderParams {
 impl ShaderParams {
     fn new(view_settings: &ViewSettings, sim_settings: &SimSettings) -> Self {
         let dt = (sim_settings.time_scale * sim_settings.dt / sim_settings.substep_n as f32)
-            .max(1.0 / 30.0);
+            .min(1.0 / 30.0);
         let particle_radius = view_settings.particle_radius * view_settings.zoom_scale;
         Self {
             specie_n: sim_settings.specie_n as _,

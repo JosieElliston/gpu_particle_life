@@ -2,11 +2,18 @@
 
 - do side by side compare of different substep_n / dt / integration methods
 - to fix feature = "accesskit" unused lints, try adding it
-- view_settings.show_grid: bool in background (spacing is local_radius)
-- README.md: remove default/approximate values for things (expect for the particle count)
+- README: remove default/approximate values for things (expect for the particle count)
 - collect general TODOs here
+- make references/resources {README section} / {file}
+- do github about thing (!= README)
 
-## changing particle/sim data
+## view_settings
+
+- view_settings.show_grid: bool in background (spacing is local_radius)
+- reset colors button
+- better default colors
+
+## sim_data: changing particle/sim data
 
 - randomize positions
 - init positions uniformly / spiral / other things
@@ -15,7 +22,7 @@
 - equalize specie counts
 - change specie counts
 
-## mouse
+## mouse_settings
 
 - add particle
 - add many particles (per frame)
@@ -65,24 +72,31 @@
     - particle nearest to mouse
     - particles within radius of mouse
 
-- rotate all particles
+## selections
 
 - select group of particles
-    - group is defined by
-        - all in radius of mouse
-        - smart select creature
-    - and rotate/steer them (vels and poses) (keybinds for steering)
-    - and camera lock on them
+    - idea 1: all in radius of mouse
+    - idea 2: smart select creature
+
+- rotate/steer creature (vels and poses) (keybinds for steering)
+- center camera on them
+- camera lock on creature
+    - with rotation
+    - without rotation
 
 ## keybinds
 
 - movement
     - wasd panning
-    - qe rotate?
+    - qe rotate if (no selection) {everything} else {selection}
     - +- zoom?
     - ? reset zoom
     - ? pause sim (time_scale: Option\<f32>)
-    - ? lock on largest creature
+    - ? select largest/next creature
+    - ? center on selection
+    - ?+scroll change radius (different keys for different radiuses)
+        - only for ones where it matters where your mouse is
+        - ie for adding particles or sections but not local_radius or particle_radius
 
 ## refactoring
 
@@ -90,7 +104,9 @@
 - rename local_radius
 - rename frame_parity to sim_step_n/count
 - rename substep_n to steps_per_frame/ticks_per_frame
-- rename particle_n to particle_count?
+- rename \*_n to \*_count?
+    - bad because specie_n refers to the number of different species, specie_count refers to how many particles are of that specie
+- should have better names for {specie_n = the number of different species} and {specie_count(s) = how many particles are of a/each specie}
 - move cpu_structs out of main.rs
 - use tick and step consistently
     - i use step i think
